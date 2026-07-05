@@ -1,0 +1,13 @@
+{
+  "name": "runebox",
+  "owner": {
+    "name": "Runebox"
+  },
+  "plugins": [
+    {
+      "name": "runebox",
+      "source": "./",
+      "description": "Your team's Runebox registry in Claude Code — log in once with an API key, your org's approved skills/agents/commands install and stay synced automatically."
+    }
+  ]
+}
