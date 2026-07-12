@@ -34,7 +34,7 @@ from pathlib import Path
 
 RUNEBOX_DIR = Path(os.environ.get("RUNEBOX_DIR", str(Path.home() / ".runebox")))
 CLAUDE_DIR = Path(os.environ.get("CLAUDE_DIR", str(Path.home() / ".claude")))
-DEFAULT_API = os.environ.get("RUNEBOX_API", "https://runebox.io")
+DEFAULT_API = os.environ.get("RUNEBOX_API", "https://runebox.ai")
 CREDS = RUNEBOX_DIR / "credentials.json"
 MANIFEST = RUNEBOX_DIR / "manifest.json"
 TIMEOUT = 6  # seconds; the hook path must stay snappy

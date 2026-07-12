@@ -5,7 +5,7 @@ description: Log in to your team's Runebox registry with an API key and install 
 Log the user in to Runebox:
 
 1. Ask the user for their Runebox API key. It starts with `rbx_` and is created on their
-   org's **Get set up** page (or Profile → API keys) at runebox.io. If they included the key
+   org's **Get set up** page (or Profile → API keys) at runebox.ai. If they included the key
    in their message already, use that.
 2. Run (passing the key on stdin, never as an argument):
 

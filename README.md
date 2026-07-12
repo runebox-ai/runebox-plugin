@@ -1,8 +1,8 @@
-# Runebox
+# Runebox plugin for Claude Code
 
-Your team's [Runebox](https://runebox.ai) registry in Claude Code. Log in once with a
-personal access key, and your org's approved skills, agents, and commands install
-automatically — and stay in sync every session.
+Your team's [Runebox](https://runebox.ai) registry in Claude Code: log in once
+with an API key and your org's approved skills, agents, and commands install on
+your machine and stay synced automatically.
 
 ## Install
 
@@ -12,26 +12,44 @@ claude plugin install runebox
 /runebox:login
 ```
 
-`/runebox:login` will ask for an API key — create one from your org's **Get set up** page
-on runebox.ai.
+`/runebox:login` asks for your org's API key (starts with `rbx_`; your admin
+creates it on the org's **Get set up** page at [runebox.ai](https://runebox.ai)),
+verifies it, and installs the whole approved catalog in one shot.
 
 ## Commands
 
-- `/runebox:login` — store your API key, verify it, and run the first sync
-- `/runebox:sync` — force a sync now
-- `/runebox:status` — orgs, keys, installed inventory, last sync
-- `/runebox:logout` — remove your stored key (optionally uninstalling synced artifacts)
+| Command | What it does |
+|---|---|
+| `/runebox:login` | Connect to your org's registry and install its catalog |
+| `/runebox:sync` | Sync now (also runs automatically at session start) |
+| `/runebox:status` | Show connected orgs and exactly what's installed |
+| `/runebox:logout` | Disconnect (optionally remove everything it installed) |
 
-A `SessionStart` hook also syncs quietly at the start of every Claude Code session — nothing
-prints unless something actually changed.
+## How sync works
 
-## How it works
+- A `SessionStart` hook runs a quiet sync every time you start Claude Code: one
+  conditional GET against the org catalog. Nothing changed → a cheap `304` and
+  zero output. Something changed → it installs/updates/removes and prints one line.
+- Every file it installs is tracked in a local manifest. It only ever touches
+  files it installed itself — never your own skills or settings.
+- When an admin **yanks** a bad version, the next sync removes it from your
+  machine. When your key is revoked, sync stops with a single notice.
 
-`scripts/sync.py` is stdlib-only Python (no dependencies): it calls your org's registry API
-for a manifest of approved artifacts, diffs it against what's already installed, and writes
-only the files it's responsible for — skills to `~/.claude/skills/<slug>/`, agents to
-`~/.claude/agents/<slug>.md`, commands to `~/.claude/commands/<slug>.md`, and so on. It never
-touches a file it didn't install itself, and it never overwrites your own `CLAUDE.md`.
+## Requirements
 
-Every artifact synced here was safety-scanned and admin-approved in your org's Runebox
-registry before it ever reached this plugin.
+- Claude Code with plugin support
+- `python3` on PATH (the sync script is stdlib-only, no dependencies)
+
+## Security notes
+
+- API keys are read from stdin at login (never passed as a CLI argument) and
+  stored in `~/.runebox/credentials.json` with `0600` permissions.
+- Install paths from the server are validated client-side against a roots
+  allowlist — a hostile path can't escape the Claude config directories.
+- Sync failures never block your session; the hook exits quietly.
+
+---
+
+Runebox is a private, governed artifact registry for teams using AI coding
+agents — publish once, scan + review every version, and every engineer's tools
+stay in sync. Free for teams up to 5 seats at [runebox.ai](https://runebox.ai).
