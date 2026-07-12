@@ -228,7 +228,12 @@ def cmd_sync(quiet):
 
 
 def cmd_login(api):
-    key = sys.stdin.read().strip()
+    if sys.stdin.isatty():
+        # interactive: prompt + Enter finishes; the bare read() below would sit silent until ^D
+        print("Paste your org API key (rbx_…), then Enter:", end=" ", flush=True)
+        key = sys.stdin.readline().strip()
+    else:
+        key = sys.stdin.read().strip()  # piped (plugin/CI): read to EOF, no trailing newline needed
     if not key.startswith("rbx_"):
         print("runebox: that doesn't look like an API key (expected rbx_…)")
         return 1
