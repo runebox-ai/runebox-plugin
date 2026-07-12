@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "runebox-sync"
+version = "0.2.0"
+description = "Standalone sync client for the Runebox registry — no Claude Code required. Keeps your team's approved skills, agents, and commands installed and current on Claude Code, Codex CLI, Cursor, and Gemini CLI."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.urls]
+Homepage = "https://runebox.ai"
+
+# `pipx install runebox-sync` / `uvx runebox-sync login` both resolve to this — the whole
+# package is the single stdlib-only scripts/sync.py file (docs/10-multi-harness/design.md).
+[project.scripts]
+runebox-sync = "sync:main"
+
+[tool.setuptools]
+py-modules = ["sync"]
+
+[tool.setuptools.package-dir]
+"" = "scripts"

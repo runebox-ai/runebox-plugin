@@ -1,0 +1,21 @@
+# Name-claim alias: `pip install runebox` == `pip install runebox-sync`. No code of its
+# own; the unpinned dependency means this never needs a re-release when runebox-sync bumps.
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "runebox"
+version = "0.2.0"
+description = "Alias for runebox-sync, the sync client for the Runebox registry (runebox.ai). Install either name."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+dependencies = ["runebox-sync"]
+
+[project.urls]
+Homepage = "https://runebox.ai"
+
+[tool.setuptools]
+py-modules = []
