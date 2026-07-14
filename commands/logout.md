@@ -6,8 +6,8 @@ Ask the user whether they also want to remove the artifacts Runebox installed (d
 them). Then run one of:
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/sync.py" logout           # keep installed files
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/sync.py" logout --remove  # also delete them
+sh "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh" logout           # keep installed files
+sh "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh" logout --remove  # also delete them
 ```
 
 Confirm the result to the user.

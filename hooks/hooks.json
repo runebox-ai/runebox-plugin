@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/sync.py\" sync --quiet"
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/run.sh\" sync --quiet"
           }
         ]
       }

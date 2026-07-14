@@ -64,8 +64,10 @@ runebox-sync autosync --apply
 
 ## Requirements
 
-- `python3` on PATH — the sync script is stdlib-only, no dependencies, works
-  standalone or as a Claude Code plugin.
+- Any Python 3 — the sync script is stdlib-only, no dependencies, works
+  standalone or as a Claude Code plugin. The plugin finds it as `python3`,
+  `python`, or the Windows `py` launcher (`scripts/run.sh`); if none exists,
+  commands print an install pointer instead of failing cryptically.
 
 ## Security notes
 

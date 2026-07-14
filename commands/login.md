@@ -10,7 +10,7 @@ Log the user in to Runebox:
 2. Run (passing the key on stdin, never as an argument):
 
    ```
-   printf '%s' "<THE_KEY>" | python3 "${CLAUDE_PLUGIN_ROOT}/scripts/sync.py" login
+   printf '%s' "<THE_KEY>" | sh "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh" login
    ```
 
    If the user gave a custom server URL, add `--api <URL>`.
