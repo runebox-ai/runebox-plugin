@@ -4,7 +4,9 @@ Covers: multi-harness install to distinct roots (skill -> every harness, agent -
 only) from one harness-aware catalog stub, login auto-detection, etag 304 no-op per harness,
 version-bump update, yank -> delete only our files (user's foreign file survives, re-checked
 per root), v1->v2 manifest migration, `harness disable` uninstalling just that harness, a
-hostile server-sent traversal path/root rejected, and 401 -> revoked-once + disabled.
+hostile server-sent traversal path/root rejected, 401 -> revoked-once + disabled, and `push`
+(create, no-op re-push, a changed-content collision that leaves the server untouched without
+--confirm, --confirm overwriting it, and a bare `push` batching every local skill at once).
 
 Run:  python3 test_sync.py
 """
@@ -42,6 +44,7 @@ STATE = {
     "etag": "v1",
     "revoked": False,
     "catalog_hits": 0,
+    "pushed": {},  # slug -> {skill_md, files, content_version} — the push endpoint's "server"
     "artifacts": {
         "a1": {
             "id": "a1", "slug": "deploy-runbook", "kind": "skill", "version": 1,
@@ -73,6 +76,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         if etag:
             self.send_header("ETag", etag)
+        if STATE.get("plugin_latest"):
+            self.send_header("X-Runebox-Plugin-Latest", STATE["plugin_latest"])
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(data)
@@ -91,6 +96,8 @@ class Handler(BaseHTTPRequestHandler):
             harness = urllib.parse.parse_qs(parsed.query).get("harness", ["claude"])[0]
             if self.headers.get("If-None-Match") == STATE["etag"]:
                 self.send_response(304)
+                if STATE.get("plugin_latest"):
+                    self.send_header("X-Runebox-Plugin-Latest", STATE["plugin_latest"])
                 self.end_headers()
                 return
             items = []
@@ -107,6 +114,47 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send_response(404)
             self.end_headers()
+
+    def do_POST(self):
+        if STATE["revoked"]:
+            self.send_response(401)
+            self.end_headers()
+            return
+        if self.path != "/api/registry/push":
+            self.send_response(404)
+            self.end_headers()
+            return
+        length = int(self.headers.get("Content-Length", 0))
+        body = json.loads(self.rfile.read(length) or b"{}")
+        # A minimal stand-in for routes_registry.push_artifact's create/unchanged/collision/
+        # update logic (the real thing is covered server-side by backend/test_push.py) — just
+        # enough for the client's request/response handling to be exercised end-to-end.
+        slug = body["slug"]
+        existing = STATE["pushed"].get(slug)
+        if existing is None:
+            STATE["pushed"][slug] = {"skill_md": body["skill_md"], "files": body["files"], "content_version": 1}
+            self._json(200, {"result": "created", "id": slug, "slug": slug, "review_status": "approved"})
+            return
+        if existing["skill_md"] == body["skill_md"] and existing["files"] == body["files"]:
+            self._json(200, {"result": "unchanged", "id": slug, "slug": slug, "content_version": existing["content_version"]})
+            return
+        if not body.get("confirm"):
+            diff = "\n".join([
+                f"--- SKILL.md (v{existing['content_version']})", "+++ SKILL.md (local)",
+                f"-{existing['skill_md']}", f"+{body['skill_md']}",
+            ])
+            self._json(409, {"detail": {
+                "result": "collision", "id": slug, "slug": slug,
+                "server": {"name": slug, "content_version": existing["content_version"], "updated_at": "t"},
+                "files": [{"filename": "SKILL.md", "status": "changed", "diff": diff}],
+                "message": "Server content differs from what you're pushing.",
+            }})
+            return
+        existing["skill_md"] = body["skill_md"]
+        existing["files"] = body["files"]
+        existing["content_version"] += 1
+        self._json(200, {"result": "updated", "id": slug, "slug": slug,
+                         "content_version": existing["content_version"], "review_status": "approved"})
 
 
 def run(fn, *args):
@@ -150,6 +198,17 @@ def main():
     assert code == 0 and out == "", out
     assert STATE["catalog_hits"] == hits + 2  # one conditional GET per enabled harness (claude, codex)
     print("  ok  304 no-op per harness on an unchanged catalog")
+
+    # 2b. update nudge: the server advertises a newer plugin version in a header (which rides
+    # the 304 fast path) -> one printed hint; same-or-older version -> silence
+    STATE["plugin_latest"] = "99.0.0"
+    code, out = run(sync.cmd_sync, True)
+    assert "plugin v99.0.0 available" in out and "/plugin marketplace update runebox" in out, out
+    STATE["plugin_latest"] = "0.0.1"
+    code, out = run(sync.cmd_sync, True)
+    assert "available" not in out, out
+    STATE["plugin_latest"] = None
+    print("  ok  update nudge on newer server version, silent when current")
 
     # 3. version bump -> updates in place, on every harness that has it installed
     STATE["artifacts"]["a1"]["version"] = 2
@@ -246,7 +305,52 @@ def main():
     assert profile.read_text().count(sync.AUTOSYNC_SNIPPET) == 1
     print("  ok  autosync prints the snippet and --apply appends it exactly once")
 
-    print("\n9 passed")
+    # 10. push: create, no-op re-push, collision without --confirm (server untouched), then
+    # --confirm overwrites — isolated in its own SKILLS_DIR so it never touches what `sync`
+    # already installed above. Undo step 8's revocation first — push needs a live key.
+    STATE["revoked"] = False
+    creds = sync._load(sync.CREDS)
+    for cred in creds.values():
+        cred.pop("disabled", None)
+    sync._save(sync.CREDS, creds, 0o600)
+    push_root = Path(TMP) / "push-skills"
+    push_root.mkdir(parents=True)
+    sync.SKILLS_DIR = push_root
+    notes = push_root / "my-notes"
+    notes.mkdir()
+    (notes / "SKILL.md").write_text("# My notes v1")
+
+    code, out = run(sync.cmd_push, "my-notes", False, False, False)
+    assert "created" in out and "COLLISION" not in out, out
+    assert STATE["pushed"]["my-notes"]["skill_md"] == "# My notes v1", STATE["pushed"]
+    print("  ok  push creates a new local skill")
+
+    code, out = run(sync.cmd_push, "my-notes", False, False, False)
+    assert "unchanged" in out, out
+    print("  ok  re-pushing identical content is a no-op")
+
+    (notes / "SKILL.md").write_text("# My notes v2")
+    code, out = run(sync.cmd_push, "my-notes", False, False, False)
+    assert "COLLISION" in out and "changed" in out and "v2" in out, out
+    assert STATE["pushed"]["my-notes"]["skill_md"] == "# My notes v1", "no --confirm must never write"
+    print("  ok  changed content without --confirm is a collision; server stays untouched")
+
+    code, out = run(sync.cmd_push, "my-notes", False, True, False)
+    assert "updated" in out, out
+    assert STATE["pushed"]["my-notes"]["skill_md"] == "# My notes v2", STATE["pushed"]
+    print("  ok  --confirm overwrites the server with the local content")
+
+    # 11. push-all (no target): a mixed batch — one unchanged, one brand new — in one run
+    other = push_root / "other-skill"
+    other.mkdir()
+    (other / "SKILL.md").write_text("# Other skill")
+    code, out = run(sync.cmd_push, None, True, False, False)
+    assert "unchanged  my-notes" in out, out
+    assert "created    other-skill" in out, out
+    assert STATE["pushed"]["other-skill"]["skill_md"] == "# Other skill", STATE["pushed"]
+    print("  ok  push --all (bare `push`) batches every local skill: unchanged + new together")
+
+    print("\n11 passed")
 
 
 if __name__ == "__main__":

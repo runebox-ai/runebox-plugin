@@ -43,6 +43,7 @@ runebox-sync autosync --apply
 |---|---|---|
 | `/runebox:login` | `login` | Connect and install the approved catalog for every detected harness |
 | `/runebox:sync` | `sync [--quiet]` | Sync now (the plugin also runs this automatically at session start) |
+| `/runebox:push` | `push [NAME\|PATH] [--all] [--org] [--confirm]` | Push a local skill (or all of them, under `~/.claude/skills`) UP to Runebox — lands privately (personal lane) unless `--org`. A same-slug artifact with different server-side content comes back as a diffed collision instead of silently overwriting; `--confirm` (after you decide) does the overwrite |
 | `/runebox:status` | `status` | Show connected orgs and per-harness inventory |
 | — | `harness enable\|disable <name>` | Turn a harness (`claude`/`codex`/`cursor`/`gemini`) on or off; disabling uninstalls just that harness's files |
 | — | `autosync [--apply]` | Print (or append) a shell-profile snippet that keeps non-Claude harnesses synced |
